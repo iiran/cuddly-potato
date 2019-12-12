@@ -18,7 +18,8 @@ namespace iiran {
 
     class Task {
     public:
-        virtual int get_id() const = 0;
+
+        [[nodiscard]] virtual int get_id() const noexcept = 0;
 
         virtual std::string operator()(const std::string &text) = 0;
 
@@ -27,7 +28,9 @@ namespace iiran {
 
     class CountLine : public Task {
     public:
-        int get_id() const override;
+
+        [[nodiscard]] int get_id() const noexcept override;
+
 
         std::string operator()(const std::string &text) override;
 
@@ -37,7 +40,9 @@ namespace iiran {
 
     class CountSemicolon : public Task {
     public:
-        int get_id() const override;
+
+        [[nodiscard]] int get_id() const noexcept override;
+
 
         std::string operator()(const std::string &text) override;
 

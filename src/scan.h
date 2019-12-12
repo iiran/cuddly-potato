@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <map>
 #include <mutex>
+#include <memory>
+#include <atomic>
 #include "task.h"
 
 namespace iiran {
@@ -26,34 +28,22 @@ namespace iiran {
 
         explicit Scan(std::vector<Task *> tasks);
 
-        void set_path(std::string path);
+        void init(std::string content);
 
-        void init();
-
-        void run();
+        std::vector<std::string> run();
 
         virtual ~Scan();
 
     protected:
         std::string m_file_path;
     private:
-        static const std::string::size_type FILE_MAX_SIZE = 100'000'000;
-
         std::string m_text;
         std::vector<Task *> m_tasks;
-        std::vector<std::string> m_task_res;
-    };
-
-
-    enum class FileType : int {
-        JavaScript,
-        TypeScript,
-        Cpp,
-        Python,
-        Golang,
-        Rust,
-        Swift,
-        Unknown,
+        std::vector<std::string> m_task_result;
+        std::mutex m_task_res_mtx;
+        std::atomic_uint8_t m_worker_num{0};
+        std::mutex m_worker_run_mtx;
+        std::condition_variable m_worker_run_cv;
     };
 
     class CppScan : public Scan {
@@ -71,8 +61,6 @@ namespace iiran {
     };
 
     Scan *create_scan(std::string filePath);
-
-    FileType get_filetype(const std::string &filePath);
 
 }
 

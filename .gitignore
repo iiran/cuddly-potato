@@ -1,4 +1,6 @@
 .idea/
+.vs/
+out/
 .DS_Store
 cmake-build-debug/
 runtime/*

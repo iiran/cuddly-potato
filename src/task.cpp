@@ -16,7 +16,7 @@ namespace iiran {
     }
 
 
-    int CountLine::get_id() const {
+    int CountLine::get_id() const noexcept {
         return CountLine::ID;
     }
 
@@ -26,13 +26,14 @@ namespace iiran {
     }
 
 
-    int CountSemicolon::get_id() const {
+    int CountSemicolon::get_id() const noexcept {
         return CountSemicolon::ID;
     }
 
     std::string CountSemicolon::operator()(const std::string &text) {
         return std::to_string(count_char(text, ';'));
     }
+
 
 }
 
