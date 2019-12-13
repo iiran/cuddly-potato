@@ -42,14 +42,14 @@ namespace iiran {
     }
 
     Research &Research::run() {
-        std::vector<std::thread> workers(m_max_concurrency);
+        std::vector<std::thread> workers;
 
         for (const auto &path : m_support_file_paths) {
             workers.emplace_back([&]() {
                 std::unique_lock worker_lock{m_worker_run_mtx};
                 m_worker_run_cv.wait(worker_lock, [&] { return m_worker_num < m_max_concurrency; });
-                worker_lock.unlock();
                 ++m_worker_num;
+                worker_lock.unlock();
 
                 Scan *s = create_scan(path);
                 s->init(get_file_content(path));
@@ -64,9 +64,15 @@ namespace iiran {
             });
         }
 
-        for (auto &w : workers) {
-            if (w.joinable()) {
-                w.join();
+        auto support_file_path_size = m_support_file_paths.size();
+        for (;;) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (workers.size() == support_file_path_size) {
+                for (auto &w : workers) {
+                    assert(w.joinable());
+                    w.join();
+                }
+                break;
             }
         }
         return *this;
@@ -132,6 +138,7 @@ namespace iiran {
         const uint8_t network_speed_ratio = 2;
         m_max_concurrency = network_speed_ratio * std::thread::hardware_concurrency();
         //todo add files
+        return *this;
     }
 
 }

@@ -17,7 +17,8 @@
 #include <mutex>
 #include <memory>
 #include <atomic>
-#include "task.h"
+
+class Task;
 
 namespace iiran {
     std::string format_task_result(int32_t task_id, const std::string &task_res, const std::string &file_path);
@@ -28,17 +29,17 @@ namespace iiran {
 
         explicit Scan(std::vector<Task *> tasks);
 
-        void init(std::string content);
+        void init(std::string content) { m_text = std::move(content); };
 
         std::vector<std::string> run();
 
-        virtual ~Scan();
+        virtual ~Scan() = default;
 
     protected:
         std::string m_file_path;
     private:
         std::string m_text;
-        std::vector<Task *> m_tasks;
+        std::vector<std::unique_ptr<Task>> m_tasks;
         std::vector<std::string> m_task_result;
         std::mutex m_task_res_mtx;
         std::atomic_uint8_t m_worker_num{0};
