@@ -61,6 +61,13 @@ namespace iiran {
         explicit PythonScan(std::string filepath);
     };
 
+    class TextScan : public Scan {
+    public:
+        explicit TextScan() ;
+
+        explicit TextScan(std::string filepath);
+    };
+
     Scan *create_scan(std::string filePath);
 
 }

@@ -7,15 +7,35 @@
 
 #include <vector>
 #include <mutex>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include "scan.h"
+#include "filetype.h"
 
 namespace iiran {
     class Research {
+    protected:
+        std::vector<std::string> m_support_file_paths;
+        std::string m_out_path;
+    private:
+        std::vector<std::string> m_results;
+        std::mutex m_result_mtx;
+        std::atomic_uint8_t m_worker_num{0};
+        std::mutex m_worker_run_mtx;
+        std::condition_variable m_worker_run_cv;
     public:
         static const std::string::size_type FILE_MAX_SIZE = 100'000'000;
 
         Research() = default;
 
-        explicit Research(std::string out_path);
+        explicit Research(std::string out_path) : m_out_path{std::move(out_path)} {};
+
+        virtual uint32_t get_max_concurrent() {
+            return std::thread::hardware_concurrency();
+        }
+
+        virtual ~Research() = default;
 
         /**
          * - add starting point (project root directory / github repo main page)
@@ -34,51 +54,76 @@ namespace iiran {
         // get file content, give it to supported Scan
         virtual std::string get_file_content(const std::string &path) = 0;
 
-        Research &run();
+        Research &run() {
+            std::vector<std::thread> workers;
+            uint32_t max_worker_num = get_max_concurrent();
+            for (const auto &path : m_support_file_paths) {
+                workers.emplace_back([&]() {
+                    std::unique_lock worker_lock{m_worker_run_mtx};
+
+                    m_worker_run_cv.wait(worker_lock, [&] {
+
+                        return m_worker_num < max_worker_num;
+                    });
+                    ++m_worker_num;
+                    worker_lock.unlock();
+
+                    Scan *s = create_scan(path);
+                    s->init(get_file_content(path));
+                    std::vector<std::string> res = std::move(s->run());
+                    {
+                        std::lock_guard lock{m_result_mtx};
+                        m_results.insert(m_results.end(), std::make_move_iterator(res.begin()),
+                                         std::make_move_iterator(res.end()));
+                    }
+                    --m_worker_num;
+                    m_worker_run_cv.notify_one();
+                });
+            }
+            auto support_file_path_size = m_support_file_paths.size();
+            for (;;) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                if (workers.size() == support_file_path_size) {
+                    for (auto &w : workers) {
+                        assert(w.joinable());
+                        w.join();
+                    }
+                    break;
+                }
+            }
+            return *this;
+        }
 
         // overwrite as default
-        void export_result();
+        void export_result() {
+            std::ofstream fs{};
+            fs.open(m_out_path, std::ios_base::out);
+            std::lock_guard lock(m_result_mtx);
+            size_t result_n = m_results.size();
+            try {
+                fs << '[';
+                for (int i = 0; i < result_n; i++) {
+                    fs << m_results.at(i);
+                    if (i != result_n - 1) {
+                        fs << ',';
+                    }
+                }
+                fs << ']';
+            } catch (std::exception &e) {
+                goto release_file;
+            }
 
-    protected:
-        std::vector<std::string> m_support_file_paths;
-        std::uint32_t m_max_concurrency;
-    private:
-        std::vector<std::string> m_results;
-        std::mutex m_result_mtx;
-        std::string m_out_path;
-        std::atomic_uint8_t m_worker_num{0};
-        std::mutex m_worker_run_mtx;
-        std::condition_variable m_worker_run_cv;
+            // final
+            release_file:
+            if (fs.is_open()) {
+                fs.close();
+            }
+        }
+
+        static bool is_supported_type(const std::string &file_path) {
+            return File::get_filetype(file_path) != FileType::Unknown;
+        }
     };
-
-    class RemoteResearch : public Research {
-    public:
-        RemoteResearch &add_target(std::string target) override;
-
-        explicit RemoteResearch(std::string out_path);
-
-        RemoteResearch &init() override;
-
-    private:
-        std::string m_root_url;
-    };
-
-    void get_all_supported_local_recursive(const std::string &path, std::vector<std::string> &v_path);
-
-    class LocalResearch : public Research {
-    public:
-        explicit LocalResearch(std::string out_path);
-
-        LocalResearch &add_target(std::string target) override;
-
-        std::string get_file_content(const std::string &path) override;
-
-        LocalResearch &init() override;
-
-    private:
-        std::string m_root_dir;
-    };
-
 }
 
 

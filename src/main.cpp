@@ -1,6 +1,8 @@
 #include "scan.h"
 #include "argo.h"
 #include "research.h"
+#include "research/local_research.h"
+#include "research/github_research.h"
 #include <filesystem>
 
 std::string get_path_root(int argc, char *argv[]) {
@@ -24,12 +26,25 @@ std::string get_path_root(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
 
-    std::string root = get_path_root(argc, argv);
+//    {
+//        std::string root = get_path_root(argc, argv);
+//        iiran::Research *rsh = new iiran::LocalResearch("/Users/yiranfeng/repo/cuddly-potato/runtime/out.json");
+//        rsh->add_target(root)
+//                .init()
+//                .run()
+//                .export_result();
+//        delete rsh;
+//    }
+    try {
+        iiran::Research *rsh = new iiran::GitHubResearch("/Users/yiranfeng/repo/cuddly-potato/runtime/out.json");
+        rsh->add_target("github.com/iiran/cuddly-potato")
+                .init()
+                .run()
+                .export_result();
+        delete rsh;
 
-    iiran::Research *rsh = new iiran::LocalResearch("/Users/yiranfeng/repo/cuddly-potato/runtime/out.json");
-    rsh->add_target(root)
-            .init()
-            .run()
-            .export_result();
+    } catch (std::exception &e) {
+        std::cout << e.what() << std::endl;
+    }
     return 0;
 }

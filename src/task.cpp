@@ -6,7 +6,6 @@
 #include <vector>
 #include <array>
 #include <map>
-#include <iostream>
 #include "task.h"
 
 namespace iiran {
@@ -186,7 +185,11 @@ namespace iiran {
                 res += '"' + word.first + R"(",")" + std::to_string(word.second) + R"(",)";
             }
         }
-        res.back() = ']';
+        if (res.length() == 1) {
+            res.push_back(']');
+        } else {
+            res.back() = ']';
+        }
         return res;
     }
 

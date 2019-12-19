@@ -126,8 +126,9 @@ namespace iiran {
             std::string blank_line = std::move(blank_task->operator()(text));
 
             int64_t total = count_line(text);
-            int64_t cmt = std::strtol(cmt_line.c_str(), nullptr, 64);
-            int64_t blank = std::strtol(blank_line.c_str(), nullptr, 64);
+            int64_t base = 64;
+            int64_t cmt = std::strtol(cmt_line.c_str(), nullptr, base);
+            int64_t blank = std::strtol(blank_line.c_str(), nullptr, base);
 
             assert(total - cmt - blank >= 0);
 
