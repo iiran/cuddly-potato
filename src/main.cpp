@@ -1,50 +1,51 @@
-#include "scan.h"
+#include <filesystem>
+#include <memory>
 #include "argo.h"
 #include "research.h"
-#include "research/local_research.h"
 #include "research/github_research.h"
-#include <filesystem>
+#include "research/local_research.h"
+#include "scan.h"
 
-std::string get_path_root(int argc, char *argv[]) {
-    const std::string param_key_path{"-r"};
-
-    std::string path;
-    if (argc > 1) {
-        iiran::Argo arg(argc, argv);
-        if (!arg.has_value(param_key_path)) {
-            throw std::logic_error("-r is missing");
-        }
-        path = arg.get_value(param_key_path);
-        std::cout << "using params path: " << path << std::endl;
+std::unique_ptr<iiran::Research> create_research(
+        const std::string &target_path, const std::string &output_path) {
+    std::unique_ptr<iiran::Research> rsh;
+    if (target_path.find_first_of('/') == 0 ||
+            target_path.find_first_of('.') == 0) {
+        rsh = std::make_unique<iiran::LocalResearch>(output_path);
+    } else if (target_path.find_first_of("github.com") == 0) {
+        rsh = std::make_unique<iiran::GitHubResearch>(output_path);
     } else {
-        path = std::filesystem::current_path();
-        std::cout << "using working path: " << path << std::endl;
+        throw std::invalid_argument("unknown target");
     }
-    return path;
+    rsh->add_target(target_path);
+    return rsh;
 }
 
-
 int main(int argc, char *argv[]) {
+    const char *help = R"(-h --help)";
 
-//    {
-//        std::string root = get_path_root(argc, argv);
-//        iiran::Research *rsh = new iiran::LocalResearch("/Users/yiranfeng/repo/cuddly-potato/runtime/out.json");
-//        rsh->add_target(root)
-//                .init()
-//                .run()
-//                .export_result();
-//        delete rsh;
-//    }
-    try {
-        iiran::Research *rsh = new iiran::GitHubResearch("/Users/yiranfeng/repo/cuddly-potato/runtime/out.json");
-        rsh->add_target("github.com/iiran/cuddly-potato")
-                .init()
-                .run()
-                .export_result();
-        delete rsh;
+    iiran::Argo arg(argc, argv);
 
-    } catch (std::exception &e) {
-        std::cout << e.what() << std::endl;
+    if (arg.has_value("--help")) {
+        std::cout << help << std::endl;
+        exit(0);
     }
+
+    std::string target{std::filesystem::current_path().string()};
+    if (arg.has_value("--target")) {
+        target = arg.get_value("--target");
+    }
+    std::string out{};
+    if (arg.has_value("--out")) {
+        out = arg.get_value("--out");
+    }
+
+    auto rsh = create_research(target, out);
+    rsh->init().run();
+
+    if (!out.empty()) {
+        rsh->export_result();
+    }
+
     return 0;
 }

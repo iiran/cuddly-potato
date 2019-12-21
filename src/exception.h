@@ -2,11 +2,9 @@
 // Created by yiran feng on 2019/12/20.
 //
 
-#ifndef CUDDLY_POTATO_EXCEPTION_H
-#define CUDDLY_POTATO_EXCEPTION_H
+#ifndef JEAN_EXCEPTION_H
+#define JEAN_EXCEPTION_H
 
-namespace iiran {
+namespace iiran {}
 
-}
-
-#endif //CUDDLY_POTATO_EXCEPTION_H
+#endif  // JEAN_EXCEPTION_H

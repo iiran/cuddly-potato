@@ -4,3 +4,5 @@ out/
 .DS_Store
 cmake-build-debug/
 runtime/*
+build/
+.vscode

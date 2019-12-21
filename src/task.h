@@ -2,144 +2,144 @@
 // Created by yiran feng on 2019/12/10.
 //
 
-#ifndef CUDDLY_POTATO_TASK_H
-#define CUDDLY_POTATO_TASK_H
-
+#ifndef JEAN_TASK_H
+#define JEAN_TASK_H
 
 #include <string>
-
+#include <vector>
 
 namespace iiran {
 
-    enum class TaskType : int {
-        CountLine,
-        CountSemicolon,
-        CountCCommentLine,
-        CountBlankLine,
-        CountCodeLine,
-        VariableNameStatistic,
-//        GetIndentStyle,
-//        IndentStatistic,
-//        LineBreakStatistic,
-//        CurlyBraceStatistic,
-//        CodeRepeatStatistic,
-    };
+enum class TaskType : int {
+  CountLine,
+  CountSemicolon,
+  CountCCommentLine,
+  CountBlankLine,
+  CountCodeLine,
+  VariableNameStatistic,
+  GetIndentStyle,
+};
 
-    class Task {
-    public:
+class Task {
+ public:
+  [[nodiscard]] virtual int get_id() const noexcept = 0;
 
-        [[nodiscard]] virtual int get_id() const noexcept = 0;
+  virtual std::string operator()(const std::string &text) = 0;
 
-        virtual std::string operator()(const std::string &text) = 0;
+  virtual ~Task() = default;
 
-        virtual ~Task() = default;
+  // merge result generated
+  virtual std::string merge_result(std::vector<std::string> results) {
+    return std::string();
+  }
 
-        virtual std::string merge_result(std::vector<std::string> results);
+  static const int32_t TASK_LINE_MAX{10'000};
+  static const size_t TASK_INIT_LINE_LEN{1'000};
+};
 
-        static const int32_t TASK_LINE_MAX{1'0000};
-        static const size_t TASK_INIT_LINE_LEN{1'000};
-    };
+class CountLine : public Task {
+ public:
+  [[nodiscard]] int get_id() const noexcept override { return CountLine::ID; }
 
-    class CountLine : public Task {
-    public:
+  std::string operator()(const std::string &text) override;
 
-        [[nodiscard]] int get_id() const noexcept override;
+ private:
+  static const int ID = static_cast<int>(TaskType::CountLine);
+};
 
+class CountSemicolon : public Task {
+ public:
+  [[nodiscard]] int get_id() const noexcept override { return CountSemicolon::ID; }
 
-        std::string operator()(const std::string &text) override;
+  std::string operator()(const std::string &text) override;
 
-    private:
-        static const int ID = static_cast<int> (TaskType::CountLine);
-    };
+ private:
+  static const int ID = static_cast<int>(TaskType::CountSemicolon);
+};
 
-    class CountSemicolon : public Task {
-    public:
+class CountCCommentLine : public Task {
+ public:
+  [[nodiscard]] int get_id() const noexcept override { return CountCCommentLine::ID; }
 
-        [[nodiscard]] int get_id() const noexcept override;
+  std::string operator()(const std::string &text) override;
 
+ private:
+  static const int ID = static_cast<int>(TaskType::CountCCommentLine);
+};
 
-        std::string operator()(const std::string &text) override;
+int64_t count_char(const std::string &s, const char &c);
 
-    private:
-        static const int ID = static_cast<int> (TaskType::CountSemicolon);
-    };
+int64_t count_line(const std::string &s);
 
-    class CountCCommentLine : public Task {
-    public:
-        [[nodiscard]] int get_id() const noexcept override;
+enum class SlashStat : uint8_t {
+  Zero,
+  Single,    // -> /
+  Double,    // -> // ...
+  Block,     // -> /* ...
+  BlockWait  // -> /* ... *
+};
 
-        std::string operator()(const std::string &text) override;
+SlashStat next_slash_stat(SlashStat state, char c);
 
-    private:
-        static const int ID = static_cast<int>( TaskType::CountCCommentLine);
-    };
+std::string get_compensate_by_state_change(SlashStat last, SlashStat now);
 
-    int64_t count_char(const std::string &s, const char &c);
+bool is_in_comment(SlashStat state);
 
-    int64_t count_line(const std::string &s);
+class CountBlankLine : public Task {
+ public:
+  [[nodiscard]] int get_id() const noexcept override { return ID; }
 
-    enum class SlashStat : uint8_t {
-        Zero,
-        Single,       // -> /
-        Double,       // -> // ...
-        Block,        // -> /* ...
-        BlockWait     // -> /* ... *
-    };
+  std::string operator()(const std::string &text) override;
 
-    SlashStat next_slash_stat(SlashStat state, char c);
+ private:
+  static const int ID = static_cast<int>(TaskType::CountBlankLine);
+};
 
-    std::string get_compensate_by_state_change(SlashStat last, SlashStat now);
+class VariableNameStatistic : public Task {
+ public:
+  [[nodiscard]] int get_id() const noexcept override { return ID; }
 
-    bool is_in_comment(SlashStat state);
+  std::string operator()(const std::string &text) override;
 
-    class CountBlankLine : public Task {
-    public:
-        [[nodiscard]] int get_id() const noexcept override;
+ private:
+  static const int ID{static_cast<int>(TaskType::VariableNameStatistic)};
+};
 
-        std::string operator()(const std::string &text) override;
+template<class CommentStyle>
+class CountCodeLine : public Task {
+ public:
+  [[nodiscard]] int get_id() const noexcept override { return ID; }
 
-    private:
-        static const int ID = static_cast<int>( TaskType::CountBlankLine);
-    };
+  std::string operator()(const std::string &text) override {
+    std::unique_ptr<Task> cmt_task = std::make_unique<CountCCommentLine>();
+    std::string cmt_line = std::move(cmt_task->operator()(text));
 
-    class VariableNameStatistic : public Task {
-    public:
-        [[nodiscard]] int get_id() const noexcept override { return ID; }
+    std::unique_ptr<Task> blank_task = std::make_unique<CountBlankLine>();
+    std::string blank_line = std::move(blank_task->operator()(text));
 
+    int64_t total = count_line(text);
+    int64_t base = 64;
+    int64_t cmt = std::strtol(cmt_line.c_str(), nullptr, base);
+    int64_t blank = std::strtol(blank_line.c_str(), nullptr, base);
 
-        std::string operator()(const std::string &text) override;
+    assert(total - cmt - blank >= 0);
 
-    private :
-        static const int ID{static_cast<int>(TaskType::VariableNameStatistic)};
-    };
+    return std::to_string(total - cmt - blank);
+  };
 
-    template<class CommentStyle>
-    class CountCodeLine : public Task {
-    public:
-        [[nodiscard]] int get_id() const noexcept override { return ID; }
+ private:
+  static const int ID{static_cast<int>(TaskType::CountCodeLine)};
+};
 
-        std::string operator()(const std::string &text) override {
-            std::unique_ptr<Task> cmt_task = std::make_unique<CountCCommentLine>();
-            std::string cmt_line = std::move(cmt_task->operator()(text));
+class GetIndentStyle : public Task {
+ public:
+  [[nodiscard]] int get_id() const noexcept override { return ID; }
 
-            std::unique_ptr<Task> blank_task = std::make_unique<CountBlankLine>();
-            std::string blank_line = std::move(blank_task->operator()(text));
+  std::string operator()(const std::string &text) override;
+ private:
+  static const int ID{static_cast<int>(TaskType::GetIndentStyle)};
+};
 
-            int64_t total = count_line(text);
-            int64_t base = 64;
-            int64_t cmt = std::strtol(cmt_line.c_str(), nullptr, base);
-            int64_t blank = std::strtol(blank_line.c_str(), nullptr, base);
+}  // namespace iiran
 
-            assert(total - cmt - blank >= 0);
-
-            return std::to_string(total - cmt - blank);
-            return "";
-        };
-
-    private:
-        static const int ID{static_cast<int>(TaskType::CountCodeLine)};
-    };
-
-}
-
-#endif //CUDDLY_POTATO_TASK_H
+#endif  // JEAN_TASK_H
