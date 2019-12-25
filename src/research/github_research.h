@@ -26,13 +26,13 @@ static const std::string Protocol{"https"};
 class GitHubResearch : public RemoteResearch {
  public:
   explicit GitHubResearch(std::string out_path)
-          : RemoteResearch{std::move(out_path)} {}
+      : RemoteResearch{std::move(out_path)} {}
 
   std::vector<std::string> get_all_files() override {
       std::pair<std::string, std::string> orgAndRepo{
-              std::move(get_org_and_repo(m_root_url))};
+          std::move(get_org_and_repo(m_root_url))};
       m_file_url_link =
-              std::move(list_repo_file(orgAndRepo.first, orgAndRepo.second));
+          std::move(list_repo_file(orgAndRepo.first, orgAndRepo.second));
       std::vector<std::string> files{};
       for (const auto &link : m_file_url_link) {
           files.emplace_back(link.first);
@@ -48,8 +48,8 @@ class GitHubResearch : public RemoteResearch {
       std::string raw_content{std::move(res["content"].get<std::string>())};
       boost::replace_all(raw_content, "\n", "");
       const std::pair<std::size_t, std::size_t> pair =
-              boost::beast::detail::base64::decode(arr.data(), raw_content.c_str(),
-                                                   raw_content.size());
+          boost::beast::detail::base64::decode(arr.data(), raw_content.c_str(),
+                                               raw_content.size());
       size_t out_size = pair.first;
       return std::string{std::begin(arr), std::begin(arr) + out_size};
   }
@@ -58,7 +58,7 @@ class GitHubResearch : public RemoteResearch {
   std::map<std::string, std::string> m_file_url_link;
 
   static std::pair<std::string, std::string> get_org_and_repo(
-          const std::string &url) {
+      const std::string &url) {
       std::vector<std::string> sv{};
       boost::split(sv, url, boost::is_any_of("/"));
       std::pair<std::string, std::string> res_pair{};
@@ -79,8 +79,8 @@ class GitHubResearch : public RemoteResearch {
   }
 
   static std::map<std::string, std::string> list_repo_file(
-          const std::string &org, const std::string &repo,
-          const std::string &base = "") {
+      const std::string &org, const std::string &repo,
+      const std::string &base = "") {
       static std::string repo_api_prefix = "repos/";
       std::string url{repo_api_prefix + org + '/' + repo + "/contents/"};
       std::map<std::string, std::string> file_url_map{};
@@ -94,8 +94,8 @@ class GitHubResearch : public RemoteResearch {
   }
 
   static void list_repo_file_recursive(
-          const std::string &url, std::map<std::string, std::string> &file_url_link,
-          const std::string &curr_path) {
+      const std::string &url, std::map<std::string, std::string> &file_url_link,
+      const std::string &curr_path) {
       static const char type_file_pre = std::string{"file"}[0];
       static const char type_dir_pre = std::string{"dir"}[0];
       auto res{RemoteResearch::request_json(url + curr_path)};
@@ -103,7 +103,7 @@ class GitHubResearch : public RemoteResearch {
           // is ban ?
           if (res.find("documentation_url") != res.end()) {
               std::string help{
-                      std::move(res["documentation_url"].get<std::string>())};
+                  std::move(res["documentation_url"].get<std::string>())};
               if (help.find_first_of("#rate-limiting") != std::string::npos) {
                   throw std::logic_error("request limited");
               }
@@ -117,7 +117,7 @@ class GitHubResearch : public RemoteResearch {
                   const char e_type_pre = static_cast<std::string>(e["type"])[0];
                   if (e_type_pre == type_file_pre) {
                       file_url_link[e_path] = url + e_path;
-                      std::cout << e_path << std::endl;
+                      // std::cout << e_path << std::endl;
                   } else if (e_type_pre == type_dir_pre) {
                       list_repo_file_recursive(url, file_url_link, e_path);
                   } else {

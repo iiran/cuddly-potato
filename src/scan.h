@@ -17,13 +17,14 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "filetype.h"
 #include "task.h"
 
 class Task;
 
 namespace iiran {
 std::string format_task_result(int32_t task_id, const std::string &task_res,
-                               const std::string &file_path);
+                               int32_t file_type);
 
 class Scan {
  public:
@@ -37,7 +38,7 @@ class Scan {
 
   void init(std::string content) { m_text = std::move(content); };
 
-  std::vector<std::string> run() {
+  std::vector<TaskResult> run() {
     unsigned max_worker_num = std::thread::hardware_concurrency();
 
     std::vector<std::thread> workers;
@@ -49,12 +50,11 @@ class Scan {
                              [&] { return m_worker_num < max_worker_num; });
         ++m_worker_num;
         worker_lock.unlock();
-        std::string task_res = t->operator()(m_text);
-        std::string format_res =
-            format_task_result(t->get_id(), task_res, m_file_path);
+        TaskResult task_res{t->operator()(m_text)};
+        task_res.file_type = static_cast<int32_t>(File::get_filetype(m_file_path));
         {
           std::lock_guard lock(m_task_res_mtx);
-          m_task_result.emplace_back(std::move(format_res));
+          m_task_result.emplace_back(std::move(task_res));
         }
         --m_worker_num;
         m_worker_run_cv.notify_one();
@@ -83,7 +83,7 @@ class Scan {
  private:
   std::string m_text;
   std::vector<std::unique_ptr<Task>> m_tasks;
-  std::vector<std::string> m_task_result;
+  std::vector<TaskResult> m_task_result;
   std::mutex m_task_res_mtx;
   std::atomic_uint8_t m_worker_num{0};
   std::mutex m_worker_run_mtx;

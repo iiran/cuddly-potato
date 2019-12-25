@@ -6,6 +6,7 @@
 #include <array>
 #include <map>
 #include <sstream>
+#include <boost/lexical_cast.hpp>
 
 namespace iiran {
 int64_t count_char(const std::string &s, const char &c) {
@@ -19,12 +20,14 @@ int64_t count_char(const std::string &s, const char &c) {
 
 int64_t count_line(const std::string &s) { return count_char(s, '\n') + 1; }
 
-std::string CountLine::operator()(const std::string &text) {
-  return std::to_string(count_line(text));
+TaskResult CountLine::operator()(const std::string &text) {
+  TaskResult r{std::to_string(count_line(text)), get_id()};
+  return r;
 }
 
-std::string CountSemicolon::operator()(const std::string &text) {
-  return std::to_string(count_char(text, ';'));
+TaskResult CountSemicolon::operator()(const std::string &text) {
+  TaskResult r{std::to_string(count_char(text, ';')), get_id()};
+  return r;
 }
 
 bool is_in_comment(SlashStat state) {
@@ -79,8 +82,28 @@ std::string get_compensate_by_state_change(SlashStat last, SlashStat now) {
   }
   return "";
 }
+void extract_map_num_result(std::map<std::string, int64_t> &m, const TaskResult &single_result) {
+  std::vector<std::string> sv{};
+  boost::split(sv, single_result.result, boost::is_any_of(" "));
+  std::string name{};
+  int64_t times{};
+  for (int i = 0; i < sv.size() - 1; i += 2) {
+    m[sv[i]] = boost::lexical_cast<int64_t>(sv[i + 1]);
+  }
+}
 
-std::string CountCCommentLine::operator()(const std::string &text) {
+void merge_num_result(TaskResult &total_result, const TaskResult &single_result) {
+  total_result.result = std::to_string(atoi(total_result.result.c_str()) + atoi(single_result.result.c_str()));
+}
+
+void merge_map_num_result(TaskResult &total_result, const TaskResult &single_result) {
+  std::map<std::string, std::int64_t> m{};
+  extract_map_num_result(m, total_result);
+  extract_map_num_result(m, single_result);
+  total_result.result = format_map_num_str(m, 0);
+}
+
+TaskResult CountCCommentLine::operator()(const std::string &text) {
   SlashStat lc_stat = SlashStat::Zero;
 
   uint64_t line_cmt_n{0};
@@ -108,10 +131,11 @@ std::string CountCCommentLine::operator()(const std::string &text) {
     ++line_cmt_n;
   }
 
-  return std::to_string(line_cmt_n);
+  TaskResult r{std::to_string(line_cmt_n), get_id()};
+  return r;
 }
 
-std::string CountBlankLine::operator()(const std::string &text) {
+TaskResult CountBlankLine::operator()(const std::string &text) {
   uint64_t line_blank_n{0};
   uint64_t not_blank_ch_n{0};
   for (const auto &c : text) {
@@ -128,10 +152,11 @@ std::string CountBlankLine::operator()(const std::string &text) {
     ++line_blank_n;
   }
 
-  return std::to_string(line_blank_n);
+  TaskResult r{std::to_string(line_blank_n), get_id()};
+  return r;
 }
 
-std::string VariableNameStatistic::operator()(const std::string &text) {
+TaskResult VariableNameStatistic::operator()(const std::string &text) {
   std::map<std::string, int64_t> word_map{};
   std::string current_word{};
 
@@ -156,22 +181,13 @@ std::string VariableNameStatistic::operator()(const std::string &text) {
   }
   update_word();
 
-  std::string res{'['};
-  for (const auto &word : word_map) {
-    if (word.second > 3) {
-      res +=
-          '"' + word.first + R"(",")" + std::to_string(word.second) + R"(",)";
-    }
-  }
-  if (res.length() == 1) {
-    res.push_back(']');
-  } else {
-    res.back() = ']';
-  }
-  return res;
+  std::string res{format_map_num_str(word_map, 3)};
+
+  TaskResult r{res, get_id()};
+  return r;
 }
 
-std::string GetIndentStyle::operator()(const std::string &text) {
+TaskResult GetIndentStyle::operator()(const std::string &text) {
   char last_c = '\0';
   bool on_indent = false;
   int16_t space_len = 0;
@@ -199,14 +215,16 @@ std::string GetIndentStyle::operator()(const std::string &text) {
       }
     }
   }
-  std::string r{};
-  r += std::to_string(tab_num);
-  if (!line_spaces.empty()) {
-    r += ' ';
-  }
-  for (int i = 0; i <= 8; i++) {
-    r += std::to_string(line_spaces[i]) + ' ';
-  }
+  line_spaces[-1] = tab_num;
+  std::string res{format_map_num_str(line_spaces, 1)};
+
+  TaskResult r{res, get_id()};
   return r;
+}
+TaskResult &TaskResult::operator+=(const TaskResult &other) {
+  if (this->task_id == other.task_id) {
+    merge_task_result_by_id(this->task_id, *this, other);
+  }
+  return *this;
 }
 }  // namespace iiran

@@ -20,13 +20,13 @@ Scan *create_scan(std::string file_path) {
   }
 }
 
+// json
 std::string format_task_result(int32_t task_id, const std::string &task_res,
-                               const std::string &file_path) {
+                               int32_t file_type) {
   char buf[Task::TASK_LINE_MAX]{0};
   assert(task_res.length() < Task::TASK_LINE_MAX);
-  assert(task_res.length() > 0);
-  std::snprintf(buf, sizeof buf, R"({"id":%u,"res":%s,"file":"%s"})", task_id,
-                task_res.c_str(), file_path.c_str());
+  std::snprintf(buf, sizeof buf, R"({"task_id":%u,"res":"%s","file_type":"%d"})", task_id,
+                task_res.c_str(), file_type);
   return std::string{buf};
 }
 
